@@ -26,6 +26,52 @@ public class SitemapGenerator {
         this.driver = driver;
     }
 
+    public static void main(String[] args) {
+        init();
+
+        int siteIterator=0;
+        Iterator<Row> Rows = readFromXlsxRows();
+        while (Rows.hasNext()) {
+
+            Row row = Rows.next();
+
+            Iterator<Cell> cellIterator = row.cellIterator();
+
+            String actualSite = cellIterator.next().toString();
+
+//        String actualSite="http://users.atw.hu/de-mi/";
+//        String actualSite="http://nagev.hu";
+//        String actualSite="http://gamestar.hu";
+//        String actualSite="http://ni.com";
+
+            siteIterator++;
+
+            int depth = (int)cellIterator.next().getNumericCellValue();
+            int depthCounter = 1;
+
+            driver.get(actualSite);
+
+            System.out.println(depth);  //for test.
+
+            mapItems.add("HOME");
+            mapItems.add("\n");
+
+//            new SitemapGenerator(driver).siteMapGen(depth, depthCounter, actualSite);
+
+        //new SitemapGenerator(driver).siteMapGen(depth, depthCounter, actualSite, actualSite);
+
+            siteMapGen(depth, depthCounter, actualSite, actualSite);
+
+            System.out.println("############ R E S U L T ##############");
+            for (String item : mapItems) {
+                System.out.print(item);
+            }
+
+            writeToFile(siteIterator);
+
+            mapItems.clear();
+        }
+    }
 
     public static void init() {
         System.setProperty("webdriver.chrome.driver", "C://chromedriver.exe");
@@ -51,58 +97,15 @@ public class SitemapGenerator {
 
         XSSFSheet sheet = workbook.getSheetAt(0);
 
+        System.out.println("rows: " + sheet.getPhysicalNumberOfRows()); //for test
         return sheet.iterator();
-    }
 
-    public static void main(String[] args) {
-        init();
-
-        int siteIterator=0;
-
-        while (readFromXlsxRows().hasNext()) {
-
-            Row row = readFromXlsxRows().next();
-
-            Iterator<Cell> cellIterator = row.cellIterator();
-
-            String actualSite = cellIterator.next().toString();
-
-//        String actualSite="http://users.atw.hu/de-mi/";
-//        String actualSite="http://nagev.hu";
-//        String actualSite="http://gamestar.hu";
-//        String actualSite="http://ni.com";
-
-            siteIterator++;
-
-            int depth = (int)cellIterator.next().getNumericCellValue();
-            int depthCounter = 1;
-
-            driver.get(actualSite);
-
-            System.out.println(depth);  //for test.
-
-            mapItems.add("HOME");
-            mapItems.add("\n");
-
-            new SitemapGenerator(driver).siteMapGen(depth, depthCounter, actualSite);
-
-//        siteMapGen(depth, depthCounter++, actualSite, actualSite);
-
-            System.out.println("############ R E S U L T ##############");
-            for (String item : mapItems) {
-                System.out.print(item);
-            }
-
-            writeToFile(siteIterator);
-
-            mapItems.clear();
-        }
     }
 
     public static void writeToFile(int siteIterator) {
         FileWriter writer = null;
         try {
-            writer = new FileWriter("C://test//result-site-" + siteIterator + ".txt");
+            writer = new FileWriter("C://test//result-site-" + siteIterator + ".rtf");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -120,100 +123,100 @@ public class SitemapGenerator {
         }
     }
 
-    public static void siteMapGen(int depth, int depthCounter, String homeUrl) {
+//    public static void siteMapGen(int depth, int depthCounter, String homeUrl) {
+//
+//        int actDepthCounter = depthCounter;
+//        System.out.println("depthCounter: " + depthCounter); //for test
+//        if (depthCounter >= depth) {
+//            System.out.println("###  counter >= depth  ###");   //for test
+//            driver.navigate().back();
+//            return;
+//        }
+//
+//        List<WebElement> actualWebElements = driver.findElements(By.tagName("a"));
+//
+//        for (WebElement element : actualWebElements) {
+//            if (!mapItems.contains(element.getText()) && element.isDisplayed() /*&&
+//                    element.getAttribute("href").startsWith(homeUrl)*/) {
+//                for (int i = 0; i < actDepthCounter; i++) {
+//                    mapItems.add("\t");
+//                }
+//                mapItems.add(element.getText());
+//                mapItems.add("\n");
+//                System.out.println(element.getText());  //for test
+//                element.click();
+//                new SitemapGenerator(driver).siteMapGen(depth, actDepthCounter+1, homeUrl);
+//            }
+//        }
+//        driver.navigate().back();
+//    }
 
-        int actDepthCounter = depthCounter;
-        System.out.println("depthCounter: " + depthCounter); //for test
-        if (depthCounter >= depth) {
-            System.out.println("###  counter >= depth  ###");   //for test
-            driver.navigate().back();
-            return;
-        }
+    public static void siteMapGen(int depth, int depthCounter, String actualSite, String homeUrl) {
 
         List<WebElement> actualWebElements = driver.findElements(By.tagName("a"));
 
+        if (actualWebElements.size()==0) {
+            //depthCounter--;
+            return;
+        }
+        List<String> actMapItems = new ArrayList<String>();
+        List<String> actMapItemUrls = new ArrayList<String>();
+        List<PageUrlText> actMapItemsUrl = new ArrayList<PageUrlText>();
+
         for (WebElement element : actualWebElements) {
-            if (!mapItems.contains(element.getText()) && element.isDisplayed() /*&&
-                    element.getAttribute("href").startsWith(homeUrl)*/) {
-                for (int i = 0; i < actDepthCounter; i++) {
-                    mapItems.add("\t");
+            if (element.getAttribute("href") != null && element.getText() != null && !element.getText().equals("") &&
+                    !element.getAttribute("href").equals("#") && !mapItems.contains(element.getText()) &&
+                    !mapItemsUrl.contains(element.getAttribute("href")) && element.isDisplayed() &&
+                    element.getAttribute("href").startsWith(homeUrl) &&
+                    !element.getAttribute("href").equals(driver.getCurrentUrl())) {
+
+                System.out.println(element.getText());  //for test.
+
+                for (int j = 0; j < depthCounter; j++) {
+                    actMapItems.add("\t");
                 }
-                mapItems.add(element.getText());
-                mapItems.add("\n");
-                System.out.println(element.getText());  //for test
-                element.click();
-                new SitemapGenerator(driver).siteMapGen(depth, actDepthCounter+1, homeUrl);
+
+                actMapItems.add(element.getText().toString() + "\n");
+                actMapItemUrls.add(element.getAttribute("href"));
+                actMapItemsUrl.add(new PageUrlText(element.getAttribute("href"), element.getText()));
             }
         }
-        driver.navigate().back();
-    }
 
-//    public static void siteMapGen(int depth, int depthCounter, String actualSite, String homeUrl) {
-//        if (depthCounter >= depth) {
-//            System.out.println("### counter>=depth###");
-//            //depthCounter--;
-//            return;
-//        }
-//        List<WebElement> actualWebElements = driver.findElements(By.tagName("a"));
-//
-//        if (actualWebElements.size()==0) {
-//            //depthCounter--;
-//            return;
-//        }
-//        List<String> actMapItems = new ArrayList<String>();
-//        List<String> actMapItemUrls = new ArrayList<String>();
-//        List<PageUrlText> actMapItemsUrl = new ArrayList<PageUrlText>();
-//
-//        for (WebElement element : actualWebElements) {
-//            if (element.getAttribute("href") != null && element.getText() != null && !element.getText().equals("") &&
-//                    !element.getAttribute("href").equals("#") && !mapItems.contains(element.getText()) &&
-//                    !mapItemsUrl.contains(element.getAttribute("href")) && element.isDisplayed() &&
-//                    element.getAttribute("href").startsWith(homeUrl) &&
-//                    !element.getAttribute("href").equals(driver.getCurrentUrl())) {
-//
-//                System.out.println(element.getText());  //for test.
-//
-//                for (int j = 0; j < depthCounter; j++) {
-//                    actMapItems.add("\t");
+        mapItems.addAll(actMapItems);
+        mapItemsUrl.addAll(actMapItemUrls);
+        if (actMapItemsUrl.size()==0) {
+            return;
+        }
+
+        if (depth >= depthCounter+1) {
+            for (PageUrlText element : actMapItemsUrl) {
+                //try {
+                    driver.findElement(By.linkText(element.getText())).click();
+                //saját kivételt kell írni hozzá -> } catch {InterruptedException e) {
+//                      System.out.println("Link is not clickable: " + element.getText());
+//                    return;
 //                }
-//
-//                actMapItems.add(element.getText().toString() + "\n");
-//                actMapItemUrls.add(element.getAttribute("href"));
-//                actMapItemsUrl.add(new PageUrlText(element.getAttribute("href"), element.getText()));
-//            }
-//        }
-//
-//        mapItems.addAll(actMapItems);
-//        mapItemsUrl.addAll(actMapItemUrls);
-//        if (actMapItemsUrl.size()==0) {
-//            depthCounter--;
-//            return;
-//        }
-//        for (PageUrlText element : actMapItemsUrl) {
-//
-//            driver.findElement(By.linkText(element.getText())).click();
-//
-//            try {
-//                Thread.sleep(1000);
-//                System.out.println("Waiting to load page...");
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//
-//            new SitemapGenerator(driver).siteMapGen(depth, depthCounter+1, driver.getCurrentUrl(), homeUrl);
-//
-//            System.out.println("depthCounter: " + depthCounter); //for test.
-//
-//            driver.navigate().back();
-//
-//            try {
-//                Thread.sleep(1000);
-//                System.out.println("Waiting to load previous page...");
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        depthCounter--;
-//    }
+                try {
+                    Thread.sleep(1000);
+                    System.out.println("Waiting to load page...");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                new SitemapGenerator(driver).siteMapGen(depth, depthCounter + 1, driver.getCurrentUrl(), homeUrl);
+
+                System.out.println("depthCounter: " + depthCounter); //for test.
+
+                driver.navigate().back();
+
+                try {
+                    Thread.sleep(1000);
+                    System.out.println("Waiting to load previous page...");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 
 }
