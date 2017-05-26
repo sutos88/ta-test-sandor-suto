@@ -16,22 +16,21 @@ import java.util.List;
 
 public class SitemapGenerator {
 
-    static WebDriver driver = new ChromeDriver();;
+    static WebDriver driver = new ChromeDriver();
 
-    public static List<PageUrlText> mapItems = new ArrayList<PageUrlText>();
+    static ArrayList<SiteInfos> mapItems = new ArrayList<SiteInfos>();
 
-    public static List<String> mapItemsStr = new ArrayList<String>();
+    static ArrayList<SiteInfos> sortedMapItems = new ArrayList<SiteInfos>();
 
-    public static List<String> mapItemsUrlStr = new ArrayList<String>();
+    static ArrayList<String> mapItemsStr = new ArrayList<String>();
 
-    public SitemapGenerator(WebDriver driver) {
-        this.driver = driver;
-    }
+    static ArrayList<String> mapItemsUrlStr = new ArrayList<String>();
 
     public static void main(String[] args) {
         init();
 
         int siteIterator=0;
+
         Iterator<Row> Rows = readFromXlsxRows();
         while (Rows.hasNext()) {
 
@@ -41,11 +40,6 @@ public class SitemapGenerator {
 
             String actualSite = cellIterator.next().toString();
 
-//        String actualSite="http://users.atw.hu/de-mi/";
-//        String actualSite="http://nagev.hu";
-//        String actualSite="http://gamestar.hu";
-//        String actualSite="http://ni.com";
-
             siteIterator++;
 
             int depth = (int)cellIterator.next().getNumericCellValue();
@@ -53,31 +47,36 @@ public class SitemapGenerator {
 
             driver.get(actualSite);
 
-            System.out.println(depth);  //for test.
-
-            mapItems.add(new PageUrlText(actualSite, "Homepage:", actualSite, 0 ));
-
-//            new SitemapGenerator(driver).siteMapGen(depth, depthCounter, actualSite);
-
-//        new SitemapGenerator(driver).siteMapGen(depth, depthCounter, actualSite, actualSite);
+            mapItems.add(new SiteInfos(actualSite, "Homepage:", actualSite, 0 ));
 
             siteMapGen(depth, depthCounter, actualSite, actualSite);
 
-            System.out.println("############ R E S U L T ##############");
-            for (PageUrlText item : mapItems) {
-                System.out.print(item);
-            }
-            Arrays.sort(mapItems);
+            Collections.sort(mapItems);
+
+            sortingMapItems();
+
+            printResult();
+
             writeToFile(siteIterator);
 
-            mapItems.clear();
+            clearLists();
         }
     }
 
+    /**
+     * Settings for the chromedriver.
+     */
     public static void init() {
         System.setProperty("webdriver.chrome.driver", "C://chromedriver.exe");
     }
 
+    /**
+     * Returns with the readable file. The .xlsx file should be on this location,
+     * and with this name: C://test//sites.xlsx
+     * You have to write the site url in the first, and the depth limit in the second
+     * column.
+     * @return file
+     */
     public static FileInputStream fileOpen() {
         FileInputStream file = null;
         try {
@@ -88,6 +87,12 @@ public class SitemapGenerator {
         return file;
     }
 
+    /**
+     * Return with the rows of .xlsx document. First open the file,
+     * then opens the sheet what we need to inspect, then it load the rows.
+     * When
+     * @return Row iterator
+     */
     public static Iterator<Row> readFromXlsxRows() {
         XSSFWorkbook workbook = null;
         try {
@@ -98,41 +103,22 @@ public class SitemapGenerator {
 
         XSSFSheet sheet = workbook.getSheetAt(0);
 
-        System.out.println("rows: " + sheet.getPhysicalNumberOfRows()); //for test
+        System.out.println("Number of sites in this file: " + sheet.getPhysicalNumberOfRows()); //for test
         return sheet.iterator();
 
     }
 
     /**
-     * Write the items of mapItems (String ArrayList) into an .rtf file.
-     * Every sites will get an individual file, which only contains the actual site informations.
-     * The name of file will be result-site-(and the indexnumber of the site).rtf
-     *
-     * @param siteIterator it is the indexnumber of sites
+     * This is a recursive method, that provide the items for the ArrayLists.
+     * First, it finds the elements by tagname, then collects the right element
+     * informations (the urls, and Texts, and how deep is this element)
+     * in the actual iteration. Then it check that we have not crossed the depth
+     * limit. If it not true, they call this method.
+     * @param depth This is the depth limit.
+     * @param depthCounter this gave information about how deep are the actual iteration.
+     * @param actualSite the current site, that runs on web browser.
+     * @param homeUrl the homepage's url.
      */
-    public static void writeToFile(int siteIterator) {
-        FileWriter writer = null;
-        try {
-            writer = new FileWriter("C://test//result-site-" + siteIterator + ".rtf");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-
-        for(PageUrlText item: mapItems) {
-            try {
-                writer.write(item.toString());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        try {
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     public static void siteMapGen(int depth, int depthCounter, String actualSite, String homeUrl) {
 
         List<WebElement> actualWebElements = driver.findElements(By.tagName("a"));
@@ -140,9 +126,10 @@ public class SitemapGenerator {
         if (actualWebElements.size()==0) {
             return;
         }
-        List<PageUrlText> actMapItems = new ArrayList<PageUrlText>();
-        List<String> actMapItemsStr = new ArrayList<String>();
-        List<String> actMapItemsUrlStr = new ArrayList<String>();
+
+        ArrayList<SiteInfos> actMapItems = new ArrayList<SiteInfos>();
+        ArrayList<String> actMapItemsStr = new ArrayList<String>();
+        ArrayList<String> actMapItemsUrlStr = new ArrayList<String>();
 
         for (WebElement element : actualWebElements) {
             if (element.getAttribute("href") != null && element.getText() != null && !element.getText().equals("") &&
@@ -156,7 +143,8 @@ public class SitemapGenerator {
                 actMapItemsStr.add(element.getText());
 
                 actMapItemsUrlStr.add(element.getAttribute("href"));
-                actMapItems.add(new PageUrlText(element.getAttribute("href"), element.getText(), actualSite, depthCounter));
+
+                actMapItems.add(new SiteInfos(element.getAttribute("href"), element.getText(), actualSite, depthCounter));
             }
         }
 
@@ -165,64 +153,96 @@ public class SitemapGenerator {
         }
 
         mapItemsStr.addAll(actMapItemsStr);
-
+        mapItemsUrlStr.addAll(actMapItemsUrlStr);
+        mapItems.addAll(actMapItems);
 
         if (depth >= depthCounter+1) {
-            for (PageUrlText element : actMapItems) {
+            for (SiteInfos element : actMapItems) {
                 try {
                     driver.findElement(By.linkText(element.getText())).click();
                 } catch (Exception e) {
                     System.out.println(element.getText() + " is not clickable yet. Continue to the next link...");
                     continue;
                 }
-//                try {
-//                    Thread.sleep(1000);
-//                    System.out.println("Waiting to load page...");
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
 
-                new SitemapGenerator(driver).siteMapGen(depth, depthCounter + 1, driver.getCurrentUrl(), homeUrl);
-
-                System.out.println("depthCounter: " + depthCounter); //for test.
+                siteMapGen(depth, depthCounter + 1, driver.getCurrentUrl(), homeUrl);
 
                 driver.navigate().back();
 
-//                try {
-//                    Thread.sleep(1000);
-//                    System.out.println("Waiting to load previous page...");
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
             }
         }
     }
 
-    //    public static void siteMapGen(int depth, int depthCounter, String homeUrl) {
-//
-//        int actDepthCounter = depthCounter;
-//        System.out.println("depthCounter: " + depthCounter); //for test
-//
-//        List<WebElement> actualWebElements = driver.findElements(By.tagName("a"));
-//
-//        for (WebElement element : actualWebElements) {
-//            if (!mapItems.contains(element.getText()) && element.isDisplayed() &&
-//                    element.getAttribute("href").startsWith(homeUrl)) {
-//                for (int i = 0; i < actDepthCounter; i++) {
-//                    mapItems.add("\t");
-//                }
-//                mapItems.add(element.getText());
-//                mapItems.add("\n");
-//                System.out.println(element.getText());  //for test
-//                try {
-//                    element.click();
-//                } catch (Exception e) {
-//                    continue;
-//                }
-//                new SitemapGenerator(driver).siteMapGen(depth, actDepthCounter+1, homeUrl);
-//            }
-//        }
-//        driver.navigate().back();
-//    }
+    /**
+     * Sorting the items by depth and the connection of the urls.
+     */
+    public static void sortingMapItems() {
+
+        for (SiteInfos item : mapItems) {
+
+            sortedMapItems.add(item);
+
+            for (SiteInfos innerItem : mapItems) {
+
+                if (item.getUrl().equals(innerItem.getPreviousUrl()) && !item.equals(innerItem) && !sortedMapItems.contains(innerItem)) {
+                    sortedMapItems.add(innerItem);
+                }
+            }
+        }
+    }
+
+    /**
+     * Writes the result to the console. (for testing)
+     */
+    public static void printResult() {
+        System.out.println("############ R E S U L T ##############");
+
+        for (SiteInfos item : sortedMapItems) {
+            for (int i = 0; i < item.getDepth() ; i++) {
+                System.out.print("\t");
+            }
+            System.out.print(item);
+        }
+        System.out.println("#######################################");
+    }
+
+    /**
+     * Write the items of mapItems (SiteInfos ArrayList) into an .rtf file.
+     * Every sites will get an individual file, which only contains the actual site informations.
+     * The name of file will be: result-site-(and the indexnumber of the site).rtf
+     *
+     * @param siteIterator it is the indexnumber of sites.
+     */
+    public static void writeToFile(int siteIterator) {
+        FileWriter writer = null;
+        try {
+            writer = new FileWriter("C://test//result-site-" + siteIterator + ".rtf");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        for(SiteInfos item: mapItems) {
+            try {
+                writer.write(item.toString());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * It clears the String and the SiteInfos ArrayList.
+     */
+    public static void clearLists() {
+        mapItems.clear();
+        mapItemsStr.clear();
+        mapItemsUrlStr.clear();
+        sortedMapItems.clear();
+    }
 
 }
